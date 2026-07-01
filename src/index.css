@@ -1,0 +1,118 @@
+@import "tailwindcss";
+
+:root {
+  font-family:
+    "Avenir Next", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: #f4f5f8;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+textarea::placeholder,
+input::placeholder {
+  color: var(--muted);
+}
+
+.app-theme.light {
+  --app-outer: #f4f5f8;
+  --app-bg: #fbfbfd;
+  --card: #ffffff;
+  --text: #1f1d2b;
+  --muted: #858397;
+  --line: #ebeaf1;
+  --soft: #f2f2f7;
+  --soft-line: #dedde8;
+  --input: #f8f8fb;
+  --nav-bg: rgba(255, 255, 255, 0.88);
+}
+
+.app-theme.dark {
+  --app-outer: #101019;
+  --app-bg: #161622;
+  --card: #202033;
+  --text: #f7f4ff;
+  --muted: #aaa5c2;
+  --line: #313149;
+  --soft: #29293f;
+  --soft-line: #45445f;
+  --input: #25253a;
+  --nav-bg: rgba(32, 32, 51, 0.9);
+}
+
+.app-theme {
+  color: var(--text);
+}
+
+@keyframes soft-pop {
+  0% {
+    transform: scale(0.92);
+  }
+  65% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-soft-pop {
+  animation: soft-pop 220ms ease-out;
+}
+
+.pressable {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    background-color 180ms ease,
+    border-color 180ms ease,
+    opacity 180ms ease;
+}
+
+.pressable:active {
+  transform: scale(0.975);
+}
+
+.soft-card {
+  border-radius: 26px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  box-shadow: 0 12px 30px rgba(42, 36, 72, 0.055);
+}
+
+@keyframes drawer-in {
+  0% {
+    transform: translateY(100%) scale(0.985);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+.drawer-open {
+  animation: drawer-in 260ms cubic-bezier(0.2, 0.85, 0.25, 1);
+}
