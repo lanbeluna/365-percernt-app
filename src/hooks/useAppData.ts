@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { AppState, DailyEntry, EnergyLevel, NewHabitInput, ThemeMode } from '../types/app'
 import { toDateKey } from '../utils/date'
 import { successFeedback, tapFeedback } from '../utils/haptics'
-import { loadState, saveState } from '../utils/storage'
+import { loadCachedState, loadState, saveState } from '../utils/storage'
 import { findEntry, getTodayProgress } from '../utils/stats'
 
 function createTodayEntry(date = toDateKey()): DailyEntry {
@@ -40,12 +40,28 @@ function updateEntry(
 
 export function useAppData() {
   const [todayKey, setTodayKey] = useState(() => toDateKey())
-  const [state, setState] = useState<AppState>(() => ensureTodayEntry(loadState(), todayKey))
+  const [state, setState] = useState<AppState>(() => ensureTodayEntry(loadCachedState(), todayKey))
+  const [isStorageReady, setIsStorageReady] = useState(false)
   const [isAddHabitOpen, setIsAddHabitOpen] = useState(false)
 
   useEffect(() => {
-    saveState(state)
-  }, [state])
+    let isActive = true
+
+    void loadState().then((persistedState) => {
+      if (!isActive) return
+      setState(ensureTodayEntry(persistedState, toDateKey()))
+      setIsStorageReady(true)
+    })
+
+    return () => {
+      isActive = false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isStorageReady) return
+    void saveState(state)
+  }, [isStorageReady, state])
 
   useEffect(() => {
     setState((current) => ensureTodayEntry(current, todayKey))
