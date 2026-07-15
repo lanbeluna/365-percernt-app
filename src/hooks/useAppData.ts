@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { AppState, DailyEntry, EnergyLevel, NewHabitInput, ThemeMode } from '../types/app'
 import { toDateKey } from '../utils/date'
+import { successFeedback, tapFeedback } from '../utils/haptics'
 import { loadState, saveState } from '../utils/storage'
 import { findEntry, getTodayProgress } from '../utils/stats'
 
@@ -70,6 +71,7 @@ export function useAppData() {
   )
 
   function toggleHabit(habitId: string) {
+    tapFeedback()
     setState((current) => {
       const nextState = updateEntry(current, todayKey, (entry) => {
         const done = entry.completedHabitIds.includes(habitId)
@@ -97,10 +99,12 @@ export function useAppData() {
   }
 
   function setEnergy(energy: EnergyLevel) {
+    tapFeedback()
     setState((current) => updateEntry(current, todayKey, (entry) => ({ ...entry, energy })))
   }
 
   function setMood(mood: string) {
+    tapFeedback()
     setState((current) => updateEntry(current, todayKey, (entry) => ({ ...entry, mood })))
   }
 
@@ -109,6 +113,7 @@ export function useAppData() {
   }
 
   function submitTodayCheckIn() {
+    successFeedback()
     setState((current) =>
       updateEntry(current, todayKey, (entry) => ({
         ...entry,
@@ -118,6 +123,7 @@ export function useAppData() {
   }
 
   function addHabit(input: NewHabitInput) {
+    successFeedback()
     setState((current) => ({
       ...current,
       habits: [
@@ -141,6 +147,7 @@ export function useAppData() {
   }
 
   function toggleHabitEnabled(habitId: string) {
+    tapFeedback()
     setState((current) => ({
       ...current,
       habits: current.habits.map((habit) =>
@@ -150,6 +157,7 @@ export function useAppData() {
   }
 
   function toggleReminder() {
+    tapFeedback()
     setState((current) => ({
       ...current,
       settings: {
@@ -160,6 +168,7 @@ export function useAppData() {
   }
 
   function setTheme(theme: ThemeMode) {
+    tapFeedback()
     setState((current) => ({
       ...current,
       settings: {
@@ -177,7 +186,10 @@ export function useAppData() {
     isAddHabitOpen,
     addHabit,
     closeAddHabit: () => setIsAddHabitOpen(false),
-    openAddHabit: () => setIsAddHabitOpen(true),
+    openAddHabit: () => {
+      tapFeedback()
+      setIsAddHabitOpen(true)
+    },
     setEnergy,
     setMood,
     setSelfNote,
