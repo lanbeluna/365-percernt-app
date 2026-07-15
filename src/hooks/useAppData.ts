@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { AppState, DailyEntry, EnergyLevel, NewHabitInput, ThemeMode } from '../types/app'
+import type { AppState, DailyEntry, EnergyLevel, Habit, NewHabitInput, ThemeMode } from '../types/app'
 import { toDateKey } from '../utils/date'
 import { successFeedback, tapFeedback } from '../utils/haptics'
+import {
+  disableHabitReminders,
+  enableHabitReminders,
+  refreshHabitReminders,
+} from '../utils/notifications'
 import { loadCachedState, loadState, saveState } from '../utils/storage'
 import { findEntry, getTodayProgress } from '../utils/stats'
 
@@ -49,8 +54,19 @@ export function useAppData() {
 
     void loadState().then((persistedState) => {
       if (!isActive) return
-      setState(ensureTodayEntry(persistedState, toDateKey()))
+      const restoredState = ensureTodayEntry(persistedState, toDateKey())
+      setState(restoredState)
       setIsStorageReady(true)
+
+      if (restoredState.settings.remindersEnabled) {
+        void refreshHabitReminders(restoredState.habits).then((isEnabled) => {
+          if (!isActive || isEnabled) return
+          setState((current) => ({
+            ...current,
+            settings: { ...current.settings, remindersEnabled: false },
+          }))
+        })
+      }
     })
 
     return () => {
@@ -140,45 +156,65 @@ export function useAppData() {
 
   function addHabit(input: NewHabitInput) {
     successFeedback()
+    const habit: Habit = {
+      id: crypto.randomUUID(),
+      icon: input.icon,
+      name: input.name,
+      frequency: '每天',
+      dailyTarget: input.dailyTarget,
+      minimumAction: input.minimumAction,
+      reminderTime: input.reminderTime,
+      createdAt: todayKey,
+      lastCheckedAt: '还没有开始',
+      streak: 0,
+      isEnabled: true,
+    }
+
     setState((current) => ({
       ...current,
-      habits: [
-        ...current.habits,
-        {
-          id: crypto.randomUUID(),
-          icon: input.icon,
-          name: input.name,
-          frequency: '每天',
-          dailyTarget: input.dailyTarget,
-          minimumAction: input.minimumAction,
-          reminderTime: input.reminderTime,
-          createdAt: todayKey,
-          lastCheckedAt: '还没有开始',
-          streak: 0,
-          isEnabled: true,
-        },
-      ],
+      habits: [...current.habits, habit],
     }))
+
+    if (state.settings.remindersEnabled) {
+      void refreshHabitReminders([...state.habits, habit])
+    }
     setIsAddHabitOpen(false)
   }
 
   function toggleHabitEnabled(habitId: string) {
     tapFeedback()
+    const habits = state.habits.map((habit) =>
+      habit.id === habitId ? { ...habit, isEnabled: !habit.isEnabled } : habit,
+    )
+
     setState((current) => ({
       ...current,
-      habits: current.habits.map((habit) =>
-        habit.id === habitId ? { ...habit, isEnabled: !habit.isEnabled } : habit,
-      ),
+      habits,
     }))
+
+    if (state.settings.remindersEnabled) {
+      void refreshHabitReminders(habits)
+    }
   }
 
-  function toggleReminder() {
+  async function toggleReminder() {
     tapFeedback()
+
+    if (state.settings.remindersEnabled) {
+      await disableHabitReminders()
+      setState((current) => ({
+        ...current,
+        settings: { ...current.settings, remindersEnabled: false },
+      }))
+      return
+    }
+
+    const isEnabled = await enableHabitReminders(state.habits)
     setState((current) => ({
       ...current,
       settings: {
         ...current.settings,
-        remindersEnabled: !current.settings.remindersEnabled,
+        remindersEnabled: isEnabled,
       },
     }))
   }
