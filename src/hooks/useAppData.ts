@@ -48,6 +48,7 @@ export function useAppData() {
   const [state, setState] = useState<AppState>(() => ensureTodayEntry(loadCachedState(), todayKey))
   const [isStorageReady, setIsStorageReady] = useState(false)
   const [isAddHabitOpen, setIsAddHabitOpen] = useState(false)
+  const [editingHabitId, setEditingHabitId] = useState<string | null>(null)
 
   useEffect(() => {
     let isActive = true
@@ -102,6 +103,11 @@ export function useAppData() {
     [state, todayKey],
   )
 
+  const editingHabit = useMemo(
+    () => state.habits.find((habit) => habit.id === editingHabitId) ?? null,
+    [editingHabitId, state.habits],
+  )
+
   function toggleHabit(habitId: string) {
     tapFeedback()
     setState((current) => {
@@ -154,8 +160,20 @@ export function useAppData() {
     )
   }
 
-  function addHabit(input: NewHabitInput) {
+  function saveHabit(input: NewHabitInput) {
     successFeedback()
+
+    if (editingHabitId) {
+      const habits = state.habits.map((habit) =>
+        habit.id === editingHabitId ? { ...habit, ...input } : habit,
+      )
+
+      setState((current) => ({ ...current, habits }))
+      if (state.settings.remindersEnabled) void refreshHabitReminders(habits)
+      closeHabitDrawer()
+      return
+    }
+
     const habit: Habit = {
       id: crypto.randomUUID(),
       icon: input.icon,
@@ -178,7 +196,25 @@ export function useAppData() {
     if (state.settings.remindersEnabled) {
       void refreshHabitReminders([...state.habits, habit])
     }
-    setIsAddHabitOpen(false)
+    closeHabitDrawer()
+  }
+
+  function deleteHabit() {
+    if (!editingHabitId) return
+
+    successFeedback()
+    const habits = state.habits.filter((habit) => habit.id !== editingHabitId)
+    setState((current) => ({
+      ...current,
+      habits,
+      entries: current.entries.map((entry) => ({
+        ...entry,
+        completedHabitIds: entry.completedHabitIds.filter((id) => id !== editingHabitId),
+      })),
+    }))
+
+    if (state.settings.remindersEnabled) void refreshHabitReminders(habits)
+    closeHabitDrawer()
   }
 
   function toggleHabitEnabled(habitId: string) {
@@ -230,18 +266,35 @@ export function useAppData() {
     }))
   }
 
+  function closeHabitDrawer() {
+    setIsAddHabitOpen(false)
+    setEditingHabitId(null)
+  }
+
+  function openAddHabit() {
+    tapFeedback()
+    setEditingHabitId(null)
+    setIsAddHabitOpen(true)
+  }
+
+  function openEditHabit(habitId: string) {
+    tapFeedback()
+    setEditingHabitId(habitId)
+    setIsAddHabitOpen(true)
+  }
+
   return {
     state,
     todayKey,
     todayEntry,
     todayProgress,
     isAddHabitOpen,
-    addHabit,
-    closeAddHabit: () => setIsAddHabitOpen(false),
-    openAddHabit: () => {
-      tapFeedback()
-      setIsAddHabitOpen(true)
-    },
+    editingHabit,
+    closeAddHabit: closeHabitDrawer,
+    deleteHabit,
+    openAddHabit,
+    openEditHabit,
+    saveHabit,
     setEnergy,
     setMood,
     setSelfNote,

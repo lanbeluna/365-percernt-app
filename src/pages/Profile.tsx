@@ -3,18 +3,21 @@ import {
   ChevronRight,
   Cloud,
   HelpCircle,
+  ListChecks,
   Moon,
   Settings,
   SmilePlus,
   Sun,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Page } from '../components/Page'
 import { Switch } from '../components/Switch'
 import type { AppDataController } from '../hooks/useAppData'
 import { getTotalCheckIns } from '../utils/stats'
 
 export function ProfilePage({ app }: { app: AppDataController }) {
+  const navigate = useNavigate()
   const isDark = app.state.settings.theme === 'dark'
   const stats = [
     ['连续打卡', '12 天'],
@@ -53,6 +56,11 @@ export function ProfilePage({ app }: { app: AppDataController }) {
       </section>
 
       <section className="soft-card mt-6 overflow-hidden rounded-[26px]">
+        <SettingRow
+          icon={<ListChecks size={19} />}
+          label="我的习惯"
+          onClick={() => navigate('/habits')}
+        />
         <SettingRow
           icon={<Bell size={19} />}
           label="打卡提醒"

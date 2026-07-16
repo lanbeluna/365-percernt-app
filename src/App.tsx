@@ -38,9 +38,11 @@ function AppContent() {
       </Routes>
       <BottomNav onAddHabit={app.openAddHabit} />
       <AddHabitDrawer
+        habit={app.editingHabit}
         isOpen={app.isAddHabitOpen}
         onClose={app.closeAddHabit}
-        onSave={app.addHabit}
+        onDelete={app.deleteHabit}
+        onSave={app.saveHabit}
       />
     </AppFrame>
   )
