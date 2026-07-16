@@ -1,7 +1,7 @@
-import { X } from 'lucide-react'
+import { Trash2, X } from 'lucide-react'
 import type { FormEvent } from 'react'
 import { useEffect, useState } from 'react'
-import type { NewHabitInput } from '../types/app'
+import type { Habit, NewHabitInput } from '../types/app'
 
 const icons = ['📚', '💧', '🧘', '🌙', '✍️', '🎧', '🍎', '🏃']
 
@@ -14,19 +14,36 @@ const emptyHabit: NewHabitInput = {
 }
 
 export function AddHabitDrawer({
+  habit,
   isOpen,
   onClose,
+  onDelete,
   onSave,
 }: {
+  habit: Habit | null
   isOpen: boolean
   onClose: () => void
+  onDelete: () => void
   onSave: (habit: NewHabitInput) => void
 }) {
   const [form, setForm] = useState<NewHabitInput>(emptyHabit)
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
 
   useEffect(() => {
-    if (!isOpen) setForm(emptyHabit)
-  }, [isOpen])
+    setIsConfirmingDelete(false)
+    if (!isOpen || !habit) {
+      setForm(emptyHabit)
+      return
+    }
+
+    setForm({
+      icon: habit.icon,
+      name: habit.name,
+      dailyTarget: habit.dailyTarget,
+      minimumAction: habit.minimumAction,
+      reminderTime: habit.reminderTime,
+    })
+  }, [habit, isOpen])
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -44,20 +61,20 @@ export function AddHabitDrawer({
   return (
     <div className={`fixed inset-0 z-40 transition ${isOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}>
       <button
-        aria-label="关闭添加习惯"
+        aria-label={habit ? '关闭编辑习惯' : '关闭添加习惯'}
         className={`absolute inset-0 bg-black/30 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`}
         onClick={onClose}
         type="button"
       />
       <form
-        className={`absolute inset-x-0 bottom-0 mx-auto max-w-[390px] rounded-t-[30px] bg-[var(--card)] px-5 pb-8 pt-4 shadow-[0_-18px_42px_rgba(37,29,70,0.16)] transition-transform duration-300 ease-out ${
+        className={`absolute inset-x-0 bottom-0 mx-auto max-h-[88dvh] max-w-[390px] overflow-y-auto rounded-t-[30px] bg-[var(--card)] px-5 pb-8 pt-4 shadow-[0_-18px_42px_rgba(37,29,70,0.16)] transition-transform duration-300 ease-out ${
           isOpen ? 'drawer-open translate-y-0' : 'translate-y-full'
         }`}
         onSubmit={submit}
       >
         <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-[var(--soft-line)]" />
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-black">添加习惯</h2>
+          <h2 className="text-xl font-black">{habit ? '编辑习惯' : '添加习惯'}</h2>
           <button
             className="grid size-9 place-items-center rounded-full bg-[var(--soft)] text-[var(--muted)]"
             onClick={onClose}
@@ -110,8 +127,45 @@ export function AddHabitDrawer({
         </div>
 
         <button className="pressable mt-5 w-full rounded-[22px] bg-[#7C63F5] py-4 text-base font-black text-white shadow-[0_12px_28px_rgba(124,99,245,0.28)]" type="submit">
-          保存习惯
+          {habit ? '保存修改' : '保存习惯'}
         </button>
+
+        {habit && (
+          <div className="mt-4 border-t border-[var(--line)] pt-4">
+            {isConfirmingDelete ? (
+              <div>
+                <p className="text-sm font-bold leading-5 text-[var(--muted)]">
+                  删除后，这个习惯的历史打卡也会移除。
+                </p>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <button
+                    className="pressable rounded-[18px] bg-[var(--soft)] py-3 text-sm font-black text-[var(--text)]"
+                    onClick={() => setIsConfirmingDelete(false)}
+                    type="button"
+                  >
+                    先保留
+                  </button>
+                  <button
+                    className="pressable rounded-[18px] bg-red-500 py-3 text-sm font-black text-white"
+                    onClick={onDelete}
+                    type="button"
+                  >
+                    确认删除
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                className="pressable flex w-full items-center justify-center gap-2 py-2 text-sm font-black text-red-500"
+                onClick={() => setIsConfirmingDelete(true)}
+                type="button"
+              >
+                <Trash2 size={17} />
+                删除这个习惯
+              </button>
+            )}
+          </div>
+        )}
       </form>
     </div>
   )

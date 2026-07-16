@@ -1,11 +1,11 @@
+import { Preferences } from '@capacitor/preferences'
 import type { AppState } from '../types/app'
 import { defaultState } from './seedData'
 
 const STORAGE_KEY = '365-percent-v2'
 
-export function loadState(): AppState {
+function parseState(raw: string | null): AppState {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return defaultState
 
     const parsed = JSON.parse(raw) as AppState
@@ -19,6 +19,32 @@ export function loadState(): AppState {
   }
 }
 
-export function saveState(state: AppState) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+export function loadCachedState(): AppState {
+  return parseState(localStorage.getItem(STORAGE_KEY))
+}
+
+export async function loadState(): Promise<AppState> {
+  try {
+    const { value } = await Preferences.get({ key: STORAGE_KEY })
+    const state = value ? parseState(value) : loadCachedState()
+    const serialized = JSON.stringify(state)
+
+    localStorage.setItem(STORAGE_KEY, serialized)
+    if (!value) await Preferences.set({ key: STORAGE_KEY, value: serialized })
+
+    return state
+  } catch {
+    return loadCachedState()
+  }
+}
+
+export async function saveState(state: AppState): Promise<void> {
+  const value = JSON.stringify(state)
+  localStorage.setItem(STORAGE_KEY, value)
+
+  try {
+    await Preferences.set({ key: STORAGE_KEY, value })
+  } catch {
+    // The local cache keeps the web app usable if native storage is unavailable.
+  }
 }

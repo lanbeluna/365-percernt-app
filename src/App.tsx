@@ -3,6 +3,7 @@ import { AddHabitDrawer } from './components/AddHabitDrawer'
 import { AppFrame } from './components/AppFrame'
 import { BottomNav } from './components/BottomNav'
 import { useAppData } from './hooks/useAppData'
+import { useAndroidBackButton } from './hooks/useAndroidBackButton'
 import { CheckInPage } from './pages/CheckIn'
 import { HabitsPage } from './pages/Habits'
 import { HomePage } from './pages/Home'
@@ -20,6 +21,11 @@ function App() {
 function AppContent() {
   const app = useAppData()
 
+  useAndroidBackButton({
+    isOverlayOpen: app.isAddHabitOpen,
+    onCloseOverlay: app.closeAddHabit,
+  })
+
   return (
     <AppFrame theme={app.state.settings.theme}>
       <Routes>
@@ -32,9 +38,11 @@ function AppContent() {
       </Routes>
       <BottomNav onAddHabit={app.openAddHabit} />
       <AddHabitDrawer
+        habit={app.editingHabit}
         isOpen={app.isAddHabitOpen}
         onClose={app.closeAddHabit}
-        onSave={app.addHabit}
+        onDelete={app.deleteHabit}
+        onSave={app.saveHabit}
       />
     </AppFrame>
   )

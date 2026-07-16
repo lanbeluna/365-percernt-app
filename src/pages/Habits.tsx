@@ -1,4 +1,4 @@
-import { Bell, CalendarDays, Flame, Plus } from 'lucide-react'
+import { Bell, CalendarDays, Flame, Pencil, Plus } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { EmptyState } from '../components/EmptyState'
 import { Page, PageTitle } from '../components/Page'
@@ -24,11 +24,22 @@ export function HabitsPage({ app }: { app: AppDataController }) {
                       <h2 className="truncate text-[17px] font-black">{habit.name}</h2>
                       <p className="mt-1 text-sm text-[var(--muted)]">{habit.frequency}</p>
                     </div>
-                    <Switch
-                      checked={habit.isEnabled}
-                      label={`切换 ${habit.name}`}
-                      onChange={() => app.toggleHabitEnabled(habit.id)}
-                    />
+                    <div className="flex shrink-0 items-center gap-2">
+                      <button
+                        aria-label={`编辑 ${habit.name}`}
+                        className="pressable grid size-9 place-items-center rounded-full bg-[var(--soft)] text-[var(--muted)]"
+                        onClick={() => app.openEditHabit(habit.id)}
+                        title="编辑习惯"
+                        type="button"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                      <Switch
+                        checked={habit.isEnabled}
+                        label={`切换 ${habit.name}`}
+                        onChange={() => app.toggleHabitEnabled(habit.id)}
+                      />
+                    </div>
                   </div>
                   <div className="mt-4 grid grid-cols-2 gap-2">
                     <InfoPill icon={<CalendarDays size={14} />} text={`最近 ${habit.lastCheckedAt}`} />

@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { AppState, DailyEntry, EnergyLevel, NewHabitInput, ThemeMode } from '../types/app'
+import type { AppState, DailyEntry, EnergyLevel, Habit, NewHabitInput, ThemeMode } from '../types/app'
 import { toDateKey } from '../utils/date'
-import { loadState, saveState } from '../utils/storage'
+import { successFeedback, tapFeedback } from '../utils/haptics'
+import {
+  disableHabitReminders,
+  enableHabitReminders,
+  refreshHabitReminders,
+} from '../utils/notifications'
+import { loadCachedState, loadState, saveState } from '../utils/storage'
 import { findEntry, getTodayProgress } from '../utils/stats'
 
 function createTodayEntry(date = toDateKey()): DailyEntry {
@@ -39,12 +45,40 @@ function updateEntry(
 
 export function useAppData() {
   const [todayKey, setTodayKey] = useState(() => toDateKey())
-  const [state, setState] = useState<AppState>(() => ensureTodayEntry(loadState(), todayKey))
+  const [state, setState] = useState<AppState>(() => ensureTodayEntry(loadCachedState(), todayKey))
+  const [isStorageReady, setIsStorageReady] = useState(false)
   const [isAddHabitOpen, setIsAddHabitOpen] = useState(false)
+  const [editingHabitId, setEditingHabitId] = useState<string | null>(null)
 
   useEffect(() => {
-    saveState(state)
-  }, [state])
+    let isActive = true
+
+    void loadState().then((persistedState) => {
+      if (!isActive) return
+      const restoredState = ensureTodayEntry(persistedState, toDateKey())
+      setState(restoredState)
+      setIsStorageReady(true)
+
+      if (restoredState.settings.remindersEnabled) {
+        void refreshHabitReminders(restoredState.habits).then((isEnabled) => {
+          if (!isActive || isEnabled) return
+          setState((current) => ({
+            ...current,
+            settings: { ...current.settings, remindersEnabled: false },
+          }))
+        })
+      }
+    })
+
+    return () => {
+      isActive = false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isStorageReady) return
+    void saveState(state)
+  }, [isStorageReady, state])
 
   useEffect(() => {
     setState((current) => ensureTodayEntry(current, todayKey))
@@ -69,7 +103,13 @@ export function useAppData() {
     [state, todayKey],
   )
 
+  const editingHabit = useMemo(
+    () => state.habits.find((habit) => habit.id === editingHabitId) ?? null,
+    [editingHabitId, state.habits],
+  )
+
   function toggleHabit(habitId: string) {
+    tapFeedback()
     setState((current) => {
       const nextState = updateEntry(current, todayKey, (entry) => {
         const done = entry.completedHabitIds.includes(habitId)
@@ -97,10 +137,12 @@ export function useAppData() {
   }
 
   function setEnergy(energy: EnergyLevel) {
+    tapFeedback()
     setState((current) => updateEntry(current, todayKey, (entry) => ({ ...entry, energy })))
   }
 
   function setMood(mood: string) {
+    tapFeedback()
     setState((current) => updateEntry(current, todayKey, (entry) => ({ ...entry, mood })))
   }
 
@@ -109,6 +151,7 @@ export function useAppData() {
   }
 
   function submitTodayCheckIn() {
+    successFeedback()
     setState((current) =>
       updateEntry(current, todayKey, (entry) => ({
         ...entry,
@@ -117,49 +160,103 @@ export function useAppData() {
     )
   }
 
-  function addHabit(input: NewHabitInput) {
+  function saveHabit(input: NewHabitInput) {
+    successFeedback()
+
+    if (editingHabitId) {
+      const habits = state.habits.map((habit) =>
+        habit.id === editingHabitId ? { ...habit, ...input } : habit,
+      )
+
+      setState((current) => ({ ...current, habits }))
+      if (state.settings.remindersEnabled) void refreshHabitReminders(habits)
+      closeHabitDrawer()
+      return
+    }
+
+    const habit: Habit = {
+      id: crypto.randomUUID(),
+      icon: input.icon,
+      name: input.name,
+      frequency: '每天',
+      dailyTarget: input.dailyTarget,
+      minimumAction: input.minimumAction,
+      reminderTime: input.reminderTime,
+      createdAt: todayKey,
+      lastCheckedAt: '还没有开始',
+      streak: 0,
+      isEnabled: true,
+    }
+
     setState((current) => ({
       ...current,
-      habits: [
-        ...current.habits,
-        {
-          id: crypto.randomUUID(),
-          icon: input.icon,
-          name: input.name,
-          frequency: '每天',
-          dailyTarget: input.dailyTarget,
-          minimumAction: input.minimumAction,
-          reminderTime: input.reminderTime,
-          createdAt: todayKey,
-          lastCheckedAt: '还没有开始',
-          streak: 0,
-          isEnabled: true,
-        },
-      ],
+      habits: [...current.habits, habit],
     }))
-    setIsAddHabitOpen(false)
+
+    if (state.settings.remindersEnabled) {
+      void refreshHabitReminders([...state.habits, habit])
+    }
+    closeHabitDrawer()
+  }
+
+  function deleteHabit() {
+    if (!editingHabitId) return
+
+    successFeedback()
+    const habits = state.habits.filter((habit) => habit.id !== editingHabitId)
+    setState((current) => ({
+      ...current,
+      habits,
+      entries: current.entries.map((entry) => ({
+        ...entry,
+        completedHabitIds: entry.completedHabitIds.filter((id) => id !== editingHabitId),
+      })),
+    }))
+
+    if (state.settings.remindersEnabled) void refreshHabitReminders(habits)
+    closeHabitDrawer()
   }
 
   function toggleHabitEnabled(habitId: string) {
+    tapFeedback()
+    const habits = state.habits.map((habit) =>
+      habit.id === habitId ? { ...habit, isEnabled: !habit.isEnabled } : habit,
+    )
+
     setState((current) => ({
       ...current,
-      habits: current.habits.map((habit) =>
-        habit.id === habitId ? { ...habit, isEnabled: !habit.isEnabled } : habit,
-      ),
+      habits,
     }))
+
+    if (state.settings.remindersEnabled) {
+      void refreshHabitReminders(habits)
+    }
   }
 
-  function toggleReminder() {
+  async function toggleReminder() {
+    tapFeedback()
+
+    if (state.settings.remindersEnabled) {
+      await disableHabitReminders()
+      setState((current) => ({
+        ...current,
+        settings: { ...current.settings, remindersEnabled: false },
+      }))
+      return
+    }
+
+    const isEnabled = await enableHabitReminders(state.habits)
     setState((current) => ({
       ...current,
       settings: {
         ...current.settings,
-        remindersEnabled: !current.settings.remindersEnabled,
+        remindersEnabled: isEnabled,
       },
     }))
   }
 
   function setTheme(theme: ThemeMode) {
+    tapFeedback()
     setState((current) => ({
       ...current,
       settings: {
@@ -169,15 +266,35 @@ export function useAppData() {
     }))
   }
 
+  function closeHabitDrawer() {
+    setIsAddHabitOpen(false)
+    setEditingHabitId(null)
+  }
+
+  function openAddHabit() {
+    tapFeedback()
+    setEditingHabitId(null)
+    setIsAddHabitOpen(true)
+  }
+
+  function openEditHabit(habitId: string) {
+    tapFeedback()
+    setEditingHabitId(habitId)
+    setIsAddHabitOpen(true)
+  }
+
   return {
     state,
     todayKey,
     todayEntry,
     todayProgress,
     isAddHabitOpen,
-    addHabit,
-    closeAddHabit: () => setIsAddHabitOpen(false),
-    openAddHabit: () => setIsAddHabitOpen(true),
+    editingHabit,
+    closeAddHabit: closeHabitDrawer,
+    deleteHabit,
+    openAddHabit,
+    openEditHabit,
+    saveHabit,
     setEnergy,
     setMood,
     setSelfNote,
